@@ -1,0 +1,37 @@
+# 转接触发规则配置
+escalation_keywords:
+  - 人工
+  - 转人工
+  - 人工客服
+  - 人工服务
+  - 转人工坐席
+  - 找真人
+  - 投诉
+  - 叫你们经理
+
+# 超过此次数的 Hallucination Guard 拒答触发转接
+hallucination_reject_threshold: 2
+
+# 连续负面情绪轮数阈值
+negative_sentiment_threshold: 3
+
+# 情感分数阈值 (负数=负面)
+sentiment_threshold: -0.3
+
+# 工单配置
+ticket:
+  ttl_minutes: 60
+  max_queue_size: 1000
+
+# 队列配置
+queues:
+  - name: general
+    label: "综合客服"
+  - name: hr
+    label: "HR 专线"
+  - name: it
+    label: "IT 支持"
+  - name: finance
+    label: "财务咨询"
+  - name: legal
+    label: "法务合规"

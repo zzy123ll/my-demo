@@ -1,0 +1,142 @@
+# 敏感类别配置 — 动态加载，支持热更新
+categories:
+  layoff:
+    risk_level: critical
+    description: "裁员、组织架构调整、人员优化"
+    keywords:
+      - 裁员
+      - 优化人员
+      - 减员
+      - 组织架构调整
+      - 人员缩减
+      - 末位淘汰
+      - 辞退
+      - 解雇
+      - 下岗
+      - 待岗
+    regex:
+      - "(?:明年|下半年|今年|明年|未来).*(?:裁员|减员|优化)"
+      - "(?:部门|公司|团队).*(?:解散|撤销|合并)"
+    action: block_and_escalate
+
+  salary:
+    risk_level: high
+    description: "个人/他人薪资查询、薪资对比、调薪"
+    keywords:
+      - 工资
+      - 薪资
+      - 薪金
+      - 涨薪
+      - 降薪
+      - 年终奖
+      - 股票期权
+      - 月薪
+      - 年薪
+      - 调薪
+    regex:
+      - "(?:我|他|她|同事|某人).*(?:工资|薪资|月薪|年薪)"
+      - "(?:工资|薪资).*(?:比|不如|高于|低于)"
+    action: block_and_escalate
+
+  pii:
+    risk_level: high
+    description: "个人身份信息泄露"
+    keywords:
+      - 身份证
+      - 银行卡号
+      - 手机号码
+      - 家庭住址
+      - 社保号
+    regex:
+      - '\d{17}[\dXx]'
+      - '1[3-9]\d{9}'
+      - '\d{16,19}'
+    action: block
+
+  politics:
+    risk_level: critical
+    description: "政治敏感话题"
+    keywords:
+      - 习近
+      - 反党
+      - 台独
+      - 疆独
+      - 藏独
+      - 六四
+    regex:
+      - "(?:反|打倒).*(?:党|政府|国家)"
+      - "(?:独立|分裂).*(?:国家|领土)"
+    action: block
+
+  jailbreak:
+    risk_level: critical
+    description: "Prompt injection / jailbreak 攻击"
+    keywords:
+      - 忽略
+      - 之前的指令
+      - 系统提示
+      - system prompt
+      - DAN
+      - 越狱
+      - 作为开发者
+      - 管理员密码
+      - admin password
+    regex:
+      - "(?:忽略|忘记|无视|覆盖).*(?:指令|限制|规则|提示)"
+      - "(?:你是|作为|扮演).*(?:开发者|管理员|root|admin)"
+      - "(?:告诉|给我|泄露).*(?:密码|密钥|token|secret)"
+      - "(?:不要|别|无需).*(?:遵守|遵循|执行).*(?:规则|指令)"
+    action: block
+
+  harassment:
+    risk_level: medium
+    description: "骚扰、歧视、攻击性言论"
+    keywords:
+      - 傻逼
+      - 垃圾
+      - 废物
+      - 滚蛋
+      - 歧视
+      - 种族
+    regex:
+      - "(?:你|这).*(?:傻|蠢|笨|垃圾|废物)"
+    action: warn
+
+  compliance:
+    risk_level: high
+    description: "法律合规风险"
+    keywords:
+      - 举报
+      - 违规
+      - 受贿
+      - 贪污
+      - 诉讼
+      - 法务漏洞
+    regex:
+      - "(?:公司|某人|某部门).*(?:违规|违法|受贿)"
+    action: block_and_escalate
+
+# 部门访问控制
+access_control:
+  departments:
+    HR:
+      allowed_doc_tags: [hr, policy, general]
+      min_level: 0
+    Engineering:
+      allowed_doc_tags: [engineering, tech, general]
+      min_level: 0
+    Finance:
+      allowed_doc_tags: [finance, policy, general]
+      min_level: 0
+    Legal:
+      allowed_doc_tags: [legal, compliance, general]
+      min_level: 0
+    Executive:
+      allowed_doc_tags: [all]
+      min_level: 0
+
+# 通知配置
+notifications:
+  slack_webhook: ""
+  email_webhook: ""
+  enabled: false

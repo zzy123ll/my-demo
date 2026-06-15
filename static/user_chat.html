@@ -1,0 +1,125 @@
+
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Enterprise RAG CS - 智能问答</title>
+<link rel="stylesheet" href="/static/css/common.css">
+<style>
+.chat-box{height:500px}
+.chat-msg .source{font-size:11px;color:#6b7280;margin-top:4px}
+.chat-msg .source span{background:#e5e7eb;padding:1px 5px;border-radius:3px;margin-right:3px;cursor:pointer}
+.side-info{font-size:12px;color:#9ca3af;margin-top:8px}
+</style>
+</head><body>
+<div class="header">
+  <h1>Enterprise RAG CS - 智能问答</h1>
+  <div class="user-info">
+    <span id="greeting">欢迎</span>
+    <button onclick="logout()">退出登录</button>
+  </div>
+</div>
+<div class="container">
+  <div class="grid2">
+    <div>
+      <div class="card" style="padding:12px">
+        <div class="chat-box" id="chatBox">
+          <div class="chat-msg bot">您好！我是企业知识库助手，有什么可以帮您的？</div>
+        </div>
+        <div class="chat-input">
+          <input type="text" id="msgInput" placeholder="输入问题，按 Enter 发送..." onkeydown="if(event.key==='Enter')sendMsg()">
+          <button class="btn btn-primary" onclick="sendMsg()">发送</button>
+        </div>
+      </div>
+      <div class="side-info" id="sessionInfo">会话：未开始</div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>会话信息</h2>
+        <div id="memoryInfo" style="font-size:13px;color:#6b7280">记忆：空</div>
+      </div>
+      <div class="card">
+        <h2>可咨询主题</h2>
+        <div style="font-size:13px;line-height:2">
+          <b>常见问题：</b><br>
+          年假、病假、加班、婚假、绩效评定<br>
+          入职流程、报销流程、培训体系、公司福利<br><br>
+          <b>注意：</b><br>
+          涉及裁员、薪资对比等敏感话题将被拦截<br>
+          输入"转人工"可转接人工客服
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script>
+let currentSessionId = null;
+
+async function init() {
+    const token = getToken();
+    if (!token) { window.location.href = "/static/login.html"; return; }
+    loadProfile();
+    newSession();
+}
+
+async function loadProfile() {
+    try {
+        const t = getToken();
+        const parts = t.split(".");
+        if (parts.length >= 2) {
+            const p = JSON.parse(atob(parts[1] + "=="));
+            document.getElementById("greeting").textContent = p.user_id + " (" + p.role + ")";
+        }
+    } catch(e) {}
+}
+
+function newSession() {
+    currentSessionId = "sess_" + Date.now().toString(36);
+    document.getElementById("chatBox").innerHTML = '<div class="chat-msg bot">新会话已开始，请提问。</div>';
+    document.getElementById("sessionInfo").textContent = "会话：" + currentSessionId;
+}
+
+async function sendMsg() {
+    const input = document.getElementById("msgInput");
+    const msg = input.value.trim();
+    if (!msg) return;
+    input.value = "";
+    const box = document.getElementById("chatBox");
+    box.innerHTML += '<div class="chat-msg user">' + escapeHtml(msg) + '</div>';
+    box.innerHTML += '<div class="chat-msg bot" id="loading">思考中...</div>';
+    box.scrollTop = box.scrollHeight;
+    const token = getToken();
+    const parts = token.split(".");
+    const payload = JSON.parse(atob(parts[1] + "=="));
+    try {
+        const r = await api("POST", "/api/v1/chat", {
+            query: msg, session_id: currentSessionId,
+            user_id: payload.user_id, department: "Engineering", top_k: 5
+        });
+        document.getElementById("loading")?.remove();
+        if (r.safety && r.safety.decision === "BLOCK") {
+            box.innerHTML += '<div class="chat-msg blocked"><b>已被安全拦截</b><br>' + escapeHtml(r.answer) + '</div>';
+        } else {
+            let html = '<div class="chat-msg bot">' + escapeHtml(r.answer);
+            if (r.hallucination) {
+                html += '<div class="source">已验证：' + (r.hallucination.supported||"?") + ' 条声明有支撑';
+                if (r.hallucination.all_hallucination) html += ' <b>(全部为幻觉！)</b>';
+                html += '</div>';
+            }
+            if (r.escalation && r.escalation.escalated) {
+                html += '<div class="source" style="color:#ea580c">已转接人工客服：' + r.escalation.ticket_id + '</div>';
+            }
+            html += '<div class="source">耗时 ' + Math.round(r.latency_ms||0) + ' ms</div>';
+            html += '</div>';
+            box.innerHTML += html;
+        }
+    } catch(e) {
+        document.getElementById("loading")?.remove();
+        box.innerHTML += '<div class="chat-msg bot" style="color:#ef4444">错误：' + escapeHtml(e.message) + '</div>';
+    }
+    box.scrollTop = box.scrollHeight;
+}
+
+function logout() { clearToken(); window.location.href = "/static/login.html"; }
+init();
+</script>
+</body></html>

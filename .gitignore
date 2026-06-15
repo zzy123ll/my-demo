@@ -1,0 +1,41 @@
+﻿# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build
+dist/
+.next/
+build/
+
+# Virtual Environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ChromaDB data
+chroma_data/
+
+# Logs
+*.log
+
+# Misc
+*.pem
+tmp/
+*.bak

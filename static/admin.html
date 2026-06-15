@@ -1,0 +1,119 @@
+
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Enterprise RAG CS - 坐席工作台</title>
+<link rel="stylesheet" href="/static/css/common.css">
+<style>.detail-panel{max-height:500px;overflow-y:auto}</style>
+</head><body>
+<div class="header">
+  <h1>Enterprise RAG CS - 坐席工作台</h1>
+  <div class="user-info">
+    <span id="greeting">欢迎</span>
+    <button onclick="logout()">退出登录</button>
+  </div>
+</div>
+<div class="container">
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <h2>待处理工单 <span class="badge badge-pending" id="ticketCount">0</span></h2>
+        <div id="ticketList"><p style="color:#9ca3af">加载中...</p></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>工单详情</h2>
+        <div class="detail-panel" id="ticketDetail"><p style="color:#9ca3af">点击工单查看详情</p></div>
+      </div>
+      <div class="card">
+        <h2>处理回复</h2>
+        <textarea id="resolutionText" placeholder="输入回复内容，将发送给用户..."></textarea>
+        <input type="text" id="resolutionTags" placeholder="标签（逗号分隔）：hr,政策">
+        <div id="resolutionBtns" style="display:flex;gap:8px;margin-top:8px">
+          <button class="btn btn-primary" onclick="resolveTicket()">标记已解决</button>
+        </div>
+        <div id="resolutionMsg" style="font-size:13px;margin-top:8px"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script>
+let selectedTicket = null;
+
+async function init() {
+    const token = getToken();
+    if (!token) { window.location.href = "/static/login.html"; return; }
+    const parts = token.split(".");
+    if (parts.length >= 2) {
+        try {
+            const p = JSON.parse(atob(parts[1] + "=="));
+            document.getElementById("greeting").textContent = p.user_id + " (" + p.role + ")";
+        } catch(e) {}
+    }
+    loadTickets();
+    setInterval(loadTickets, 10000);
+}
+
+async function loadTickets() {
+    try {
+        const r = await api("GET", "/api/v1/escalate/pending");
+        const tickets = r.tickets || [];
+        document.getElementById("ticketCount").textContent = tickets.length;
+        if (tickets.length === 0) {
+            document.getElementById("ticketList").innerHTML = '<p style="color:#9ca3af">暂无待处理工单</p>';
+            return;
+        }
+        document.getElementById("ticketList").innerHTML = tickets.map(t => {
+            const cls = t.priority <= 1 ? "badge-critical" : t.priority <= 2 ? "badge-pending" : "badge-resolved";
+            return '<div class="ticket-item" onclick="selectTicket('' + t.ticket_id + '')">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center">' +
+              '<b>' + escapeHtml(t.ticket_id) + '</b>' +
+              '<span class="badge ' + cls + '">' + (t.priority||"3") + '</span>' +
+              '</div>' +
+              '<div class="meta">' + escapeHtml(t.user_name||t.user_id||"") + ' | ' + escapeHtml(t.trigger_reason||"") + '</div>' +
+              '<div class="meta">' + escapeHtml((t.summary||"").slice(0,80)) + '</div>' +
+              '</div>';
+        }).join("");
+    } catch(e) {}
+}
+
+async function selectTicket(tid) {
+    selectedTicket = tid;
+    document.getElementById("ticketDetail").innerHTML = '<p>工单：' + escapeHtml(tid) + '</p><p style="color:#9ca3af">在下方输入回复内容，点击"标记已解决"</p>';
+    document.getElementById("resolutionMsg").textContent = "";
+}
+
+async function resolveTicket() {
+    if (!selectedTicket) {
+        document.getElementById("resolutionMsg").textContent = "请先选择一个工单";
+        document.getElementById("resolutionMsg").style.color = "#ef4444";
+        return;
+    }
+    const text = document.getElementById("resolutionText").value.trim();
+    if (!text) {
+        document.getElementById("resolutionMsg").textContent = "请输入回复内容";
+        document.getElementById("resolutionMsg").style.color = "#ef4444";
+        return;
+    }
+    const tags = (document.getElementById("resolutionTags").value || "").split(",").map(t=>t.trim()).filter(Boolean);
+    try {
+        await api("POST", "/api/v1/escalate/" + selectedTicket + "/resolve", {
+            ticket_id: selectedTicket, resolution: text, solution_tags: tags
+        });
+        document.getElementById("resolutionMsg").textContent = "已解决！";
+        document.getElementById("resolutionMsg").style.color = "#10b981";
+        document.getElementById("resolutionText").value = "";
+        document.getElementById("resolutionTags").value = "";
+        selectedTicket = null;
+        loadTickets();
+    } catch(e) {
+        document.getElementById("resolutionMsg").textContent = "错误：" + e.message;
+        document.getElementById("resolutionMsg").style.color = "#ef4444";
+    }
+}
+
+function logout() { clearToken(); window.location.href = "/static/login.html"; }
+init();
+</script>
+</body></html>

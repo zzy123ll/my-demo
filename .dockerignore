@@ -1,0 +1,38 @@
+﻿# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Tests (optional to include)
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (will be recreated in container)
+chroma_data/
+logs/
+*.sqlite3
+
+# Git
+.git/
+.gitignore
+
+# Docs (optional)
+docs/
+
+# Temp
+tmp/
+*.bak
+
+# Env (keep .env out of image - use env_file in compose)
+.env.local
+.env.*.local

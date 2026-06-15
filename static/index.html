@@ -1,0 +1,385 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enterprise RAG CS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Segoe UI,Microsoft YaHei,sans-serif;background:#f0f2f5;color:#1a1a2e}
+.header{background:#1a1a2e;color:#fff;padding:12px 24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:18px;font-weight:600}
+.header .status{font-size:12px;padding:4px 10px;border-radius:12px}
+.status.online{background:#10b981}
+.status.offline{background:#ef4444}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e5e7eb;padding:0 24px}
+.tab{padding:12px 20px;cursor:pointer;font-size:14px;color:#6b7280;border-bottom:2px solid transparent;transition:.2s}
+.tab:hover{color:#1a1a2e}
+.tab.active{color:#3b82f6;border-bottom-color:#3b82f6;font-weight:600}
+.tab .badge{background:#ef4444;color:#fff;font-size:10px;padding:2px 6px;border-radius:8px;margin-left:6px}
+.main{padding:20px 24px;max-width:1200px;margin:0 auto}
+
+/* Chat */
+.chat-container{background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);height:calc(100vh - 200px);display:flex;flex-direction:column}
+.chat-messages{flex:1;overflow-y:auto;padding:16px}
+.chat-input-area{border-top:1px solid #e5e7eb;padding:12px 16px;display:flex;gap:8px}
+.chat-input-area input{flex:1;padding:10px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;outline:none}
+.chat-input-area input:focus{border-color:#3b82f6}
+.chat-input-area button{padding:10px 20px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500}
+.chat-input-area button:hover{background:#2563eb}
+.msg{max-width:80%;margin-bottom:12px;padding:10px 14px;border-radius:8px;line-height:1.5;font-size:14px;animation:fadeIn .3s}
+.msg.user{background:#3b82f6;color:#fff;margin-left:auto}
+.msg.bot{background:#f3f4f6;color:#1a1a2e}
+.msg.blocked{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+.msg .meta{font-size:11px;opacity:.7;margin-top:4px}
+.msg .citations{font-size:11px;margin-top:4px;color:#6b7280}
+.msg .citations span{background:#e5e7eb;padding:2px 6px;border-radius:4px;margin-right:4px;cursor:pointer}
+
+/* Sidebar */
+.sidebar{width:260px;font-size:13px;padding:16px}
+.sidebar label{display:block;margin-bottom:4px;color:#6b7280;font-size:12px}
+.sidebar input,.sidebar select{width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;margin-bottom:12px;font-size:13px}
+
+/* Cards */
+.card{background:#fff;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.1);padding:16px;margin-bottom:12px}
+.card h3{font-size:14px;color:#6b7280;margin-bottom:8px}
+.ticket-item{border:1px solid #e5e7eb;border-radius:6px;padding:12px;margin-bottom:8px;cursor:pointer;transition:.2s}
+.ticket-item:hover{border-color:#3b82f6;background:#f8faff}
+.ticket-item .urgency{font-size:11px;padding:2px 6px;border-radius:4px}
+.urgency.critical{background:#fef2f2;color:#dc2626}
+.urgency.high{background:#fff7ed;color:#ea580c}
+.urgency.normal{background:#f0fdf4;color:#16a34a}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat-box{background:#fff;border-radius:8px;padding:16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.stat-box .value{font-size:28px;font-weight:700;color:#1a1a2e}
+.stat-box .label{font-size:12px;color:#6b7280;margin-top:4px}
+.stat-box.green .value{color:#10b981}
+.stat-box.red .value{color:#ef4444}
+.stat-box.blue .value{color:#3b82f6}
+
+/* Modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:100;justify-content:center;align-items:center}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:12px;padding:24px;width:90%;max-width:600px;max-height:80vh;overflow-y:auto}
+.modal h3{margin-bottom:12px}
+.modal textarea{width:100%;height:120px;border:1px solid #d1d5db;border-radius:6px;padding:10px;font-size:14px;resize:vertical;margin-bottom:12px}
+.modal .btn-row{display:flex;gap:8px;justify-content:flex-end}
+.modal button{padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;border:none}
+.modal .btn-primary{background:#3b82f6;color:#fff}
+.modal .btn-secondary{background:#e5e7eb;color:#374151}
+
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.loading{text-align:center;padding:20px;color:#9ca3af}
+.empty{text-align:center;padding:40px;color:#9ca3af;font-size:14px}
+@media(max-width:768px){.grid2,.grid4{grid-template-columns:1fr}.main{padding:10px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Enterprise RAG CS</h1>
+  <span class="status online" id="serverStatus">在线</span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('chat')">用户问答</div>
+  <div class="tab" onclick="switchTab('escalation')">人工坐席 <span class="badge" id="escalationBadge">0</span></div>
+  <div class="tab" onclick="switchTab('dashboard')">健康看板</div>
+  <div class="tab" onclick="switchTab('feedback')">用户反馈</div>
+</div>
+
+<div class="main">
+
+  <!-- CHAT TAB -->
+  <div id="tab-chat" class="tab-content active">
+    <div class="grid2">
+      <div class="chat-container">
+        <div class="chat-messages" id="chatMessages">
+          <div class="msg bot">您好！我是企业知识库助手，有什么可以帮您的？</div>
+        </div>
+        <div class="chat-input-area">
+          <input type="text" id="chatInput" placeholder="输入问题...按 Enter 发送" onkeydown="if(event.key==='Enter')sendChat()">
+          <button onclick="sendChat()">发送</button>
+        </div>
+      </div>
+      <div class="sidebar">
+        <label>会话ID</label>
+        <input type="text" id="sessionId" value="sess-demo-001">
+        <label>用户ID</label>
+        <input type="text" id="userId" value="zhangsan">
+        <label>部门</label>
+        <select id="department">
+          <option value="Engineering">Engineering</option>
+          <option value="HR">HR</option>
+          <option value="Finance">Finance</option>
+          <option value="Legal">Legal</option>
+        </select>
+        <label>检索数量 (top_k)</label>
+        <input type="number" id="topK" value="5" min="1" max="20">
+        <div style="font-size:11px;color:#9ca3af;margin-top:16px">
+          提示：输入"转人工"触发转接<br>
+          输入"公司裁员"测试安全拦截<br>
+          输入"忽略之前的指令"测试注入防护
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ESCALATION TAB -->
+  <div id="tab-escalation" class="tab-content">
+    <div class="grid2">
+      <div>
+        <h3 style="margin-bottom:12px">待处理工单</h3>
+        <div id="ticketList"><div class="loading">加载中...</div></div>
+      </div>
+      <div>
+        <h3 style="margin-bottom:12px">工单详情</h3>
+        <div id="ticketDetail"><div class="empty">点击工单查看详情</div></div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="resolveModal">
+      <div class="modal">
+        <h3>解决工单</h3>
+        <textarea id="resolveText" placeholder="输入解决方案..."></textarea>
+        <input type="text" id="resolveTags" placeholder="标签 (逗号分隔): hr,policy" style="width:100%;margin-bottom:12px;padding:8px;border:1px solid #d1d5db;border-radius:4px">
+        <div class="btn-row">
+          <button class="btn-secondary" onclick="closeResolve()">取消</button>
+          <button class="btn-primary" onclick="resolveTicket()">标记已解决</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD TAB -->
+  <div id="tab-dashboard" class="tab-content">
+    <div class="grid4" id="statBoxes">
+      <div class="stat-box"><div class="value">--</div><div class="label">今日请求</div></div>
+      <div class="stat-box blue"><div class="value">--</div><div class="label">平均延迟(ms)</div></div>
+      <div class="stat-box red"><div class="value">--</div><div class="label">幻觉率</div></div>
+      <div class="stat-box"><div class="value">--</div><div class="label">安全拦截率</div></div>
+    </div>
+    <div id="dashboardText" style="margin-top:16px;background:#1a1a2e;color:#10b981;padding:16px;border-radius:8px;font-family:monospace;font-size:13px;white-space:pre-wrap;max-height:500px;overflow-y:auto">加载中...</div>
+  </div>
+
+  <!-- FEEDBACK TAB -->
+  <div id="tab-feedback" class="tab-content">
+    <div class="card">
+      <h3>对回答评分</h3>
+      <div style="display:flex;gap:8px;margin:12px 0">
+        <button onclick="submitFeedback(1)" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">1 很差</button>
+        <button onclick="submitFeedback(2)" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">2 较差</button>
+        <button onclick="submitFeedback(3)" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">3 一般</button>
+        <button onclick="submitFeedback(4)" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">4 良好</button>
+        <button onclick="submitFeedback(5)" style="padding:10px 16px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">5 很好</button>
+      </div>
+      <input type="text" id="feedbackComment" placeholder="补充评论 (可选)" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;margin-bottom:8px">
+      <div id="feedbackMsg" style="font-size:13px;color:#10b981;margin-top:4px"></div>
+    </div>
+    <div class="card">
+      <h3>反馈统计</h3>
+      <div id="feedbackStats"><div class="loading">加载中...</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = '';
+
+async function api(method, path, body) {
+  const opts = {method, headers:{'Content-Type':'application/json'}};
+  if(body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  return r.json();
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', t.textContent.startsWith(
+      name==='chat'?'用户':name==='escalation'?'人工':name==='dashboard'?'健康':'用户反馈'
+    ));
+  });
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if(name === 'escalation') loadTickets();
+  if(name === 'dashboard') loadDashboard();
+  if(name === 'feedback') loadFeedbackStats();
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const query = input.value.trim();
+  if(!query) return;
+  input.value = '';
+
+  const msgs = document.getElementById('chatMessages');
+  msgs.innerHTML += '<div class="msg user">' + escapeHtml(query) + '</div>';
+  msgs.innerHTML += '<div class="msg bot" id="loading-msg">思考中...</div>';
+  msgs.scrollTop = msgs.scrollHeight;
+
+  const sid = document.getElementById('sessionId').value;
+  const uid = document.getElementById('userId').value;
+  const dept = document.getElementById('department').value;
+  const topK = parseInt(document.getElementById('topK').value) || 5;
+
+  try {
+    const d = await api('POST', '/api/v1/chat', {
+      query, session_id:sid, user_id:uid, department:dept, top_k:topK
+    });
+    document.getElementById('loading-msg')?.remove();
+
+    if(d.safety && d.safety.decision === 'BLOCK') {
+      msgs.innerHTML += '<div class="msg blocked"><b>安全拦截</b><br>' +
+        escapeHtml(d.answer || d.safety.user_message || '该问题涉及敏感信息') +
+        '<div class="meta">类别: ' + (d.safety.matched_category || 'unknown') + '</div></div>';
+    } else {
+      let html = '<div class="msg bot">' + escapeHtml(d.answer || '抱歉，未找到相关信息');
+      if(d.hallucination) {
+        html += '<div class="meta">支撑: ' + d.hallucination.supported_count + '/' +
+          (d.hallucination.supported_count + d.hallucination.hallucination_count) +
+          (d.hallucination.all_hallucination ? ' (全部幻觉!)' : '') + '</div>';
+      }
+      if(d.citations && d.citations.length > 0) {
+        html += '<div class="citations">引用: ';
+        d.citations.forEach((c,i) => {
+          html += '<span title="' + escapeHtml(c.source_doc_id||c.chunk_id||'') + '">[' + (i+1) + ']</span>';
+        });
+        html += '</div>';
+      }
+      if(d.escalation && d.escalation.escalated) {
+        html += '<div class="meta" style="color:#ea580c">已转接人工: ' + d.escalation.ticket_id + '</div>';
+      }
+      html += '<div class="meta">延迟: ' + d.latency_ms + 'ms | trace: ' + (d.trace_id||'').slice(0,8) + '</div>';
+      html += '</div>';
+      msgs.innerHTML += html;
+    }
+  } catch(e) {
+    document.getElementById('loading-msg')?.remove();
+    msgs.innerHTML += '<div class="msg bot" style="color:#ef4444">请求失败: ' + escapeHtml(e.message) + '</div>';
+  }
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+async function loadTickets() {
+  const list = document.getElementById('ticketList');
+  try {
+    const d = await api('GET', '/api/v1/escalate/pending');
+    const tickets = d.tickets || [];
+    document.getElementById('escalationBadge').textContent = tickets.length;
+    if(tickets.length === 0) {
+      list.innerHTML = '<div class="empty">暂无待处理工单</div>';
+      return;
+    }
+    list.innerHTML = tickets.map(t => {
+      const urgencyClass = t.priority <= 1 ? 'critical' : t.priority <= 2 ? 'high' : 'normal';
+      return '<div class="ticket-item" onclick="showTicket(\'' + t.ticket_id + '\')">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<b>' + escapeHtml(t.ticket_id) + '</b>' +
+        '<span class="urgency ' + urgencyClass + '">' + (t.priority <= 1 ? '紧急' : t.priority <= 2 ? '高' : '普通') + '</span>' +
+        '</div>' +
+        '<div style="font-size:12px;color:#6b7280;margin-top:4px">' + escapeHtml(t.user_name || t.user_id) + ' | ' + escapeHtml(t.trigger_reason || '') + '</div>' +
+        '<div style="font-size:12px;color:#9ca3af">' + escapeHtml((t.summary || '').slice(0, 80)) + '</div>' +
+        '</div>';
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="empty">加载失败</div>';
+  }
+}
+
+async function showTicket(tid) {
+  const detail = document.getElementById('ticketDetail');
+  try {
+    const d = await api('POST', '/api/v1/escalate/' + tid + '/resolve', {ticket_id:tid, resolution:''});
+    detail.innerHTML = '<div class="card"><h3>' + escapeHtml(tid) + '</h3>' +
+      '<div class="empty">点击下方按钮解决</div></div>' +
+      '<button class="btn-primary" style="width:100%;padding:10px" onclick="openResolve(\'' + tid + '\')">标记已解决</button>';
+  } catch(e) {
+    detail.innerHTML = '<div class="card"><h3>' + escapeHtml(tid) + '</h3>' +
+      '<div class="empty">点击下方按钮解决</div></div>' +
+      '<button class="btn-primary" style="width:100%;padding:10px" onclick="openResolve(\'' + tid + '\')">标记已解决</button>';
+  }
+}
+
+function openResolve(tid) {
+  document.getElementById('resolveModal').classList.add('show');
+  document.getElementById('resolveModal').dataset.ticketId = tid;
+}
+function closeResolve() {
+  document.getElementById('resolveModal').classList.remove('show');
+}
+async function resolveTicket() {
+  const tid = document.getElementById('resolveModal').dataset.ticketId;
+  const text = document.getElementById('resolveText').value;
+  const tags = document.getElementById('resolveTags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  await api('POST', '/api/v1/escalate/' + tid + '/resolve', {ticket_id:tid, resolution:text, solution_tags:tags});
+  closeResolve();
+  loadTickets();
+  document.getElementById('ticketDetail').innerHTML = '<div class="empty">已解决</div>';
+}
+
+async function loadDashboard() {
+  try {
+    const d = await api('GET', '/health/dashboard');
+    const s = d.snapshot || {};
+    document.getElementById('statBoxes').innerHTML =
+      '<div class="stat-box"><div class="value">' + (s.total_requests||0) + '</div><div class="label">今日请求</div></div>' +
+      '<div class="stat-box blue"><div class="value">' + ((s.avg_latency_ms||{}).e2e||'--') + '</div><div class="label">平均延迟(ms)</div></div>' +
+      '<div class="stat-box red"><div class="value">' + ((s.hallucination_rate*100)||0).toFixed(1) + '%</div><div class="label">幻觉率</div></div>' +
+      '<div class="stat-box"><div class="value">' + ((s.safety_block_rate*100)||0).toFixed(1) + '%</div><div class="label">安全拦截率</div></div>';
+    document.getElementById('dashboardText').textContent = d.text || '暂无数据';
+  } catch(e) {
+    document.getElementById('dashboardText').textContent = '加载失败';
+  }
+}
+
+async function submitFeedback(rating) {
+  const comment = document.getElementById('feedbackComment').value;
+  const sid = document.getElementById('sessionId').value;
+  const uid = document.getElementById('userId').value;
+  try {
+    const d = await api('POST', '/api/v1/feedback', {
+      message_id: 'msg-' + Date.now(), rating, session_id:sid, user_id:uid, comment
+    });
+    document.getElementById('feedbackMsg').textContent = '感谢评价! ID: ' + d.feedback_id;
+    loadFeedbackStats();
+  } catch(e) {
+    document.getElementById('feedbackMsg').textContent = '提交失败';
+    document.getElementById('feedbackMsg').style.color = '#ef4444';
+  }
+}
+
+async function loadFeedbackStats() {
+  try {
+    const d = await api('GET', '/api/v1/feedback/stats');
+    document.getElementById('feedbackStats').innerHTML =
+      '<div class="grid4">' +
+      '<div class="stat-box"><div class="value">' + (d.total||0) + '</div><div class="label">总评价</div></div>' +
+      '<div class="stat-box blue"><div class="value">' + (d.avg_rating||0).toFixed(1) + '</div><div class="label">平均评分</div></div>' +
+      '<div class="stat-box green"><div class="value">' + ((d.positive_rate*100)||0).toFixed(0) + '%</div><div class="label">好评率</div></div>' +
+      '<div class="stat-box red"><div class="value">' + ((d.negative_rate*100)||0).toFixed(0) + '%</div><div class="label">差评率</div></div>' +
+      '</div>';
+  } catch(e) {}
+}
+
+function escapeHtml(s) {
+  if(!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Check server on load
+fetch('/health').then(r => r.json()).then(d => {
+  document.getElementById('serverStatus').textContent = '在线';
+  document.getElementById('serverStatus').className = 'status online';
+}).catch(() => {
+  document.getElementById('serverStatus').textContent = '离线';
+  document.getElementById('serverStatus').className = 'status offline';
+});
+
+loadDashboard();
+</script>
+</body>
+</html>

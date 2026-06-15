@@ -1,0 +1,98 @@
+﻿# Enterprise RAG CS - Docker Compose 全栈部署
+# 模型已预缓存到镜像 (约 2.5GB)，无需运行时下载
+version: "3.8"
+
+services:
+  # ===== 核心 API 服务 =====
+  api:
+    build: .
+    container_name: rag-cs-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - CHROMA_PERSIST_DIR=/data/chroma
+      - HF_HOME=/root/.cache/huggingface
+    volumes:
+      - chroma_data:/data/chroma
+      - feedback_data:/app/data
+      - logs:/app/logs
+      - huggingface_cache:/root/.cache/huggingface
+      - ./static:/app/static
+    depends_on:
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ===== Redis =====
+  redis:
+    image: redis:7-alpine
+    container_name: rag-cs-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ===== ChromaDB (可选: --profile full 或 --profile vector) =====
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: rag-cs-chromadb
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    restart: unless-stopped
+    profiles:
+      - full
+      - vector
+
+  # ===== PostgreSQL (可选: --profile full 或 --profile db) =====
+  postgres:
+    image: postgres:16-alpine
+    container_name: rag-cs-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: rag_cs
+      POSTGRES_USER: rag_user
+      POSTGRES_PASSWORD: rag_pass_2024
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag_user -d rag_cs"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    profiles:
+      - full
+      - db
+
+volumes:
+  chroma_data:
+  feedback_data:
+  logs:
+  redis_data:
+  postgres_data:
+  huggingface_cache:
+
+networks:
+  default:
+    name: rag-cs-network

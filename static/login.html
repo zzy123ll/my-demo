@@ -1,0 +1,47 @@
+
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Enterprise RAG CS - Login</title>
+<link rel="stylesheet" href="/static/css/common.css">
+<style>
+.login-box{max-width:400px;margin:80px auto;text-align:center}
+.login-box h1{font-size:24px;margin-bottom:8px}
+.login-box p{color:#6b7280;font-size:14px;margin-bottom:24px}
+.login-box .error{color:#ef4444;font-size:13px;margin-top:8px}
+</style>
+</head><body>
+<div class="login-box">
+  <h1>Enterprise RAG CS</h1>
+  <p>Enterprise Knowledge Base Customer Service System</p>
+  <div class="card">
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <button class="btn btn-primary" onclick="doLogin()" style="width:100%">Login</button>
+    <div class="error" id="error"></div>
+  </div>
+  <p style="font-size:12px;color:#9ca3af;margin-top:16px">
+    Test: admin/admin123 | zhangsan/staff123 | agent01/agent123
+  </p>
+</div>
+<script src="/static/js/api.js"></script>
+<script>
+async function doLogin() {
+    const uid = document.getElementById("username").value.trim();
+    const pwd = document.getElementById("password").value;
+    document.getElementById("error").textContent = "";
+    try {
+        const r = await api("POST", "/api/v1/auth/login", { user_id: uid, password: pwd });
+        setToken(r.token);
+        const role = r.user.role;
+        if (role === "admin" || role === "agent") {
+            window.location.href = "/static/admin.html";
+        } else {
+            window.location.href = "/static/user_chat.html";
+        }
+    } catch(e) {
+        document.getElementById("error").textContent = e.message;
+    }
+}
+document.getElementById("password").addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
+</script>
+</body></html>
