@@ -27,7 +27,7 @@ def _find_env_file() -> Path:
 
 def _load_dotenv() -> None:
     env_path = _find_env_file()
-    if not env_path.exists():
+    if env_path is None or not env_path.exists():
         return
     with open(env_path, "r", encoding="utf-8") as f:
         for line in f:

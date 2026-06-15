@@ -15,12 +15,12 @@ def _find_env_file() -> Path:
     fallback = Path("E:/wolkplace/.env")
     if fallback.exists():
         return fallback
-    raise FileNotFoundError("Cannot find .env file")
+    return None
 
 
 def _load_dotenv() -> None:
     env_path = _find_env_file()
-    if not env_path.exists():
+    if env_path is None or not env_path.exists():
         return
     with open(env_path, "r", encoding="utf-8") as f:
         for line in f:
